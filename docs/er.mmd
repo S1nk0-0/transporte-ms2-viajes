@@ -1,0 +1,44 @@
+erDiagram
+    TARIFAS ||--o{ VIAJES  : "tarifa_id"
+    VIAJES  ||--o{ PARADAS : "viaje_id"
+
+    TARIFAS {
+        INT          id                PK "1..4"
+        VARCHAR      tipo_servicio        "economico|estandar|confort|xl"
+        DECIMAL      tarifa_base
+        DECIMAL      costo_por_km
+        DECIMAL      costo_por_minuto
+        DECIMAL      recargo_hora_pico
+        BOOLEAN      activa
+    }
+
+    VIAJES {
+        INT          id                PK "1..25000"
+        INT          pasajero_id          "logico MS1 usuarios.id 1..20000"
+        INT          conductor_id         "logico MS1 conductores.id 1..600"
+        INT          vehiculo_id          "logico MS1 vehiculos.id 1..600"
+        INT          tarifa_id         FK
+        VARCHAR      estado               "solicitado|en_curso|finalizado|cancelado"
+        VARCHAR      metodo_pago          "efectivo|tarjeta|billetera"
+        VARCHAR      distrito_origen
+        VARCHAR      distrito_destino
+        VARCHAR      direccion_origen
+        VARCHAR      direccion_destino
+        DECIMAL      distancia_km
+        INT          duracion_min
+        DECIMAL      monto_total
+        DATETIME     solicitado_en        "UTC"
+        DATETIME     iniciado_en          "UTC, null hasta en_curso"
+        DATETIME     finalizado_en        "UTC, null hasta finalizado"
+    }
+
+    PARADAS {
+        BIGINT       id                PK
+        INT          viaje_id          FK "ON DELETE CASCADE"
+        INT          orden                "unico por viaje"
+        VARCHAR      distrito
+        VARCHAR      direccion
+        DECIMAL      latitud
+        DECIMAL      longitud
+        DATETIME     llegada_en           "UTC"
+    }

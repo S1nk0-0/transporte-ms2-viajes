@@ -1,0 +1,52 @@
+server:
+  port: ${PORT:8002}
+  servlet:
+    context-path: /ms2
+
+spring:
+  application:
+    name: ms2-viajes
+  datasource:
+    url: jdbc:mysql://${BD_HOST:localhost}:${BD_PORT:3306}/${BD_NOMBRE:viajes_db}?serverTimezone=UTC&useUnicode=true&characterEncoding=UTF-8
+    username: ${BD_USUARIO:app_ms2}
+    password: ${BD_CLAVE:cambiame}
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 5000
+  jpa:
+    hibernate:
+      ddl-auto: validate        # el DDL lo crea init/mysql/01-schema.sql, no Hibernate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    time-zone: UTC
+    default-property-inclusion: always
+    serialization:
+      write-dates-as-timestamps: false
+    # date-format NO se pone aca: solo afecta a java.util.Date, no a Instant.
+    # El formato "2026-08-14T21:58:40Z" lo fuerza config/JacksonConfig.java
+
+# Swagger en /ms2/docs (el context-path /ms2 se antepone solo)
+springdoc:
+  swagger-ui:
+    path: /docs
+  api-docs:
+    path: /openapi.json
+
+ms2:
+  # URL base de MS1 a traves del balanceador interno. Sin barra final.
+  ms1-url: ${MS1_URL:http://localhost:8001}
+  # Si es false, POST /ms2/viajes no valida contra MS1 (util antes de que MS1 este arriba)
+  validar-con-ms1: ${VALIDAR_CON_MS1:true}
+  timeout-ms: 5000
+  reintentos: 1
+  # servers: del OpenAPI, debe apuntar al API Gateway (lo llena P3)
+  public-url: ${PUBLIC_URL:https://api-transporte.execute-api.us-east-1.amazonaws.com}
+
+logging:
+  level:
+    root: INFO
+    pe.utec.transporte: DEBUG

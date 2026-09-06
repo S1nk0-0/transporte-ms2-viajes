@@ -1,0 +1,47 @@
+# Compose SOLO para desarrollo local: levanta MySQL + MS2 juntos.
+# En AWS, MySQL vive en mv-bd y el compose del equipo (transporte-infra)
+# declara unicamente el servicio ms2 haciendo pull de la imagen.
+services:
+
+  mysql:
+    image: mysql:8
+    container_name: ms2-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootlocal}
+      MYSQL_DATABASE: viajes_db
+      MYSQL_USER: ${BD_USUARIO:-app_ms2}
+      MYSQL_PASSWORD: ${BD_CLAVE:-cambiame}
+      TZ: UTC
+    command: --default-time-zone=+00:00
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./docs/01-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  ms2:
+    build: .
+    container_name: ms2-viajes
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      PORT: 8002
+      BD_HOST: mysql
+      BD_PORT: 3306
+      BD_NOMBRE: viajes_db
+      BD_USUARIO: ${BD_USUARIO:-app_ms2}
+      BD_CLAVE: ${BD_CLAVE:-cambiame}
+      MS1_URL: ${MS1_URL:-http://host.docker.internal:8001}
+      VALIDAR_CON_MS1: ${VALIDAR_CON_MS1:-false}
+    ports:
+      - "8002:8002"
+    restart: unless-stopped
+
+volumes:
+  mysql_data:

@@ -1,0 +1,9 @@
+target/
+.env
+infra.env
+*.pem
+.idea/
+*.iml
+.DS_Store
+AUDITORIA.md
+files.zip
