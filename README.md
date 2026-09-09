@@ -71,6 +71,10 @@ curl -X PATCH http://localhost:8002/ms2/viajes/1/estado \
 
 ## Esquema de la base
 
+El catálogo de `tarifas` (4 filas fijas) usa los mismos valores que el seed de P3
+(`seed/seed_mysql.py`, repo MS3). Ese script hace `TRUNCATE` y reinserta, así que
+en un entorno sembrado mandan los suyos.
+
 El DDL está en [`docs/01-schema.sql`](docs/01-schema.sql) — cópialo a
 `transporte-infra/init/mysql/01-schema.sql`.
 El diagrama E/R está en [`docs/er.mmd`](docs/er.mmd) (Mermaid, GitHub lo renderiza solo).
@@ -86,8 +90,24 @@ solicitado ──> en_curso ──> finalizado
      └──> cancelado <┘
 ```
 
-Cualquier otra transición devuelve `409`. Al pasar a `finalizado` se calcula
-`monto_total = tarifa_base + km*costo_por_km + min*costo_por_minuto`.
+Cualquier otra transición devuelve `409`. Al pasar a `finalizado` se calcula el monto:
+
+```
+subtotal = tarifa_base + km*costo_por_km + min*costo_por_minuto
+monto    = subtotal * (hora pico ? multiplicador_hora_pico : 1.00)
+```
+
+`multiplicador_hora_pico` **multiplica el subtotal completo**, no suma un recargo.
+Son hora pico las 07, 08, 09, 18, 19 y 20 **en UTC**, evaluadas sobre `iniciado_en`
+(si viniera `null`, sobre `solicitado_en`). La franja y la fórmula son las mismas de
+`seed/seed_mysql.py` en el repo de MS3: si no coinciden, los 25 000 montos sembrados
+dejan de cuadrar con lo que calcula MS2.
+
+El redondeo es `HALF_UP` a 2 decimales, una sola vez y al final.
+
+Ejemplo: tarifa 2 `estandar`, 10.00 km, 30 min, iniciado 08:15 UTC →
+subtotal `5.50 + 14.50 + 9.60 = 29.60`, monto `29.60 * 1.35 = 39.96`.
+El mismo viaje a las 13:15 UTC paga 29.60.
 
 ## Llamada inter-servicio (Contrato §5.1 y §10.1)
 

@@ -15,6 +15,7 @@ import pe.utec.transporte.ms2.repo.ViajeRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -182,15 +183,46 @@ public class ViajeService {
         return ViajeDTO.de(viajes.save(v));
     }
 
-    /** base + km*costo_km + min*costo_min, redondeado a 2 decimales (Contrato §8 · dinero). */
+    /** Horas pico, en UTC. Identicas a HORAS_PICO de seed/seed_mysql.py:52 (repo MS3). */
+    private static final Set<Integer> HORAS_PICO = Set.of(7, 8, 9, 18, 19, 20);
+
+    /**
+     * subtotal = tarifa_base + km*costo_por_km + min*costo_por_minuto
+     * monto    = subtotal * (hora pico ? multiplicador_hora_pico : 1.00)
+     *
+     * El multiplicador se aplica al subtotal completo, no solo a la base: asi lo hace
+     * seed/seed_mysql.py:65, y de esa formula salen los 25 000 montos sembrados.
+     * El redondeo HALF_UP a 2 decimales va UNA sola vez, al final: redondear el
+     * subtotal antes de multiplicar daria centimos de diferencia contra el seed.
+     */
     private BigDecimal calcularMonto(Viaje v) {
         Tarifa t = v.getTarifa();
         BigDecimal km  = v.getDistanciaKm() != null ? v.getDistanciaKm() : BigDecimal.ZERO;
         BigDecimal min = v.getDuracionMin() != null ? BigDecimal.valueOf(v.getDuracionMin()) : BigDecimal.ZERO;
-        return t.getTarifaBase()
+        BigDecimal subtotal = t.getTarifaBase()
                 .add(km.multiply(t.getCostoPorKm()))
-                .add(min.multiply(t.getCostoPorMinuto()))
-                .setScale(2, RoundingMode.HALF_UP);
+                .add(min.multiply(t.getCostoPorMinuto()));
+
+        return subtotal.multiply(multiplicadorDe(v, t)).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * El seed evalua la hora sobre `iniciado` (seed_mysql.py:60 y :64), o sea la columna
+     * iniciado_en, y sus datetime son naive sobre una BD con time_zone = '+00:00'
+     * (01-schema.sql:12): son UTC. Aca se lee el mismo campo y se fuerza UTC en vez de la
+     * zona del contenedor, porque una MV con otro TZ correria la franja pico y los montos
+     * dejarian de cuadrar con lo sembrado.
+     *
+     * iniciado_en puede venir null: la columna es NULL-able y una fila cargada por fuera
+     * puede estar en_curso sin ella. Se cae a solicitado_en, que es NOT NULL. En los datos
+     * del seed la espera entre una y otra es de 1 a 9 minutos (seed_mysql.py:59), asi que
+     * es el proxy mas cercano; solo difiere si solicitud e inicio caen en horas distintas.
+     * La alternativa era asumir 1.00, pero eso deja de cobrar el pico sin dejar rastro.
+     */
+    private BigDecimal multiplicadorDe(Viaje v, Tarifa t) {
+        Instant momento = v.getIniciadoEn() != null ? v.getIniciadoEn() : v.getSolicitadoEn();
+        int hora = momento.atZone(ZoneOffset.UTC).getHour();
+        return HORAS_PICO.contains(hora) ? t.getMultiplicadorHoraPico() : BigDecimal.ONE;
     }
 
     // ---------- tarifas ----------

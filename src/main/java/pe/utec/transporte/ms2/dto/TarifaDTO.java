@@ -10,12 +10,12 @@ public record TarifaDTO(Integer id,
                         BigDecimal tarifaBase,
                         BigDecimal costoPorKm,
                         BigDecimal costoPorMinuto,
-                        BigDecimal recargoHoraPico,
+                        BigDecimal multiplicadorHoraPico,
                         Boolean activa) {
 
     public static TarifaDTO de(Tarifa t) {
         return new TarifaDTO(t.getId(), t.getTipoServicio(), t.getTarifaBase(),
                              t.getCostoPorKm(), t.getCostoPorMinuto(),
-                             t.getRecargoHoraPico(), t.getActiva());
+                             t.getMultiplicadorHoraPico(), t.getActiva());
     }
 }

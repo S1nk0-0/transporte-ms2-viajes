@@ -25,8 +25,9 @@ public class Tarifa {
     @Column(name = "costo_por_minuto", nullable = false, precision = 10, scale = 2)
     private BigDecimal costoPorMinuto;
 
-    @Column(name = "recargo_hora_pico", nullable = false, precision = 10, scale = 2)
-    private BigDecimal recargoHoraPico;
+    /** Multiplicador del subtotal en hora pico (1.20..1.60), no un recargo que se suma. */
+    @Column(name = "multiplicador_hora_pico", nullable = false, precision = 10, scale = 2)
+    private BigDecimal multiplicadorHoraPico;
 
     @Column(nullable = false)
     private Boolean activa;
